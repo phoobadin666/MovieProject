@@ -47,7 +47,7 @@ namespace MovieProject
         }
         private void getAllMovie()
         {
-            string connectionString = @"Server=DESKTOP-9U4FO0V\SQLEXPRESS;Database=movie_collection_db;Trusted_Connection=True";
+            string connectionString = @"Server=DESKTOP-G2RQ5QR\SQLEXPRESS;Database=movie_collection_db;Trusted_Connection=True";
             using (SqlConnection sqlConnection = new SqlConnection(connectionString))
             {
                 try
@@ -121,6 +121,7 @@ namespace MovieProject
                 }
             }
         }
+
         private void FrmMovie_Load(object sender, System.EventArgs e)
         {
             getAllMovie();
@@ -154,7 +155,7 @@ namespace MovieProject
             }
             else
             {
-                string connectionString = @"Server=DESKTOP-9U4FO0V\SQLEXPRESS;Database=movie_collection_db;Trusted_Connection=True";
+                string connectionString = @"Server=DESKTOP-G2RQ5QR\SQLEXPRESS=movie_collection_db;Trusted_Connection=True";
                 using (SqlConnection sqlConnection = new SqlConnection(connectionString))
                 {
                     try
@@ -253,6 +254,299 @@ namespace MovieProject
                     movieDirectorImage = convertImageToByteArray(pcbMovieDirectorImage.Image, ImageFormat.Png);
                 }
             }
+        }
+
+        private void btSearchMovie_Click(object sender, EventArgs e)
+        {
+            //Validate 
+            if (tbSearchMovie.Text.Trim() == "")
+            {
+                MessageBox.Show("กรุณากรอกชื่อภาพยนต์ที่ต้องการค้นหา");
+            }
+            else
+            {
+                string connectionString = @"Server=DESKTOP-G2RQ5QR\SQLEXPRESS;Database=movie_collection_db;Trusted_Connection=True";
+                using (SqlConnection sqlConnection = new SqlConnection(connectionString))
+                {
+                    try
+                    {
+                        string keyword = tbSearchMovie.Text.Trim();
+                        string strSQL = "SELECT movieId, movieName FROM movie_tb WHERE movieName LIKE @keyword";
+
+                        using (SqlCommand cmd = new SqlCommand(strSQL, sqlConnection))
+                        {
+                            cmd.Parameters.AddWithValue("@keyword", "%" + keyword + "%");
+
+                            using (SqlDataAdapter dataAdapter = new SqlDataAdapter(cmd))
+                            {
+                                DataTable dataTable = new DataTable();
+                                dataAdapter.Fill(dataTable);
+
+                                // ตั้งค่า ListView
+                                lvShowSearchMovie.Items.Clear();
+                                lvShowSearchMovie.Columns.Clear();
+                                lvShowSearchMovie.FullRowSelect = true;
+                                lvShowSearchMovie.View = View.Details;
+
+                                lvShowSearchMovie.Columns.Add("รหัสภาพยนต์", 80, HorizontalAlignment.Left);
+                                lvShowSearchMovie.Columns.Add("ชื่อภาพยนต์", 100, HorizontalAlignment.Left);
+
+                                foreach (DataRow row in dataTable.Rows)
+                                {
+                                    ListViewItem item = new ListViewItem(row["movieId"].ToString());
+                                    item.SubItems.Add(row["movieName"].ToString());
+                                    lvShowSearchMovie.Items.Add(item);
+                                }
+
+                                if (lvShowSearchMovie.Items.Count == 0)
+                                {
+                                    MessageBox.Show("ไม่พบภาพยนต์ที่ค้นหา");
+                                }
+                            }
+                        }
+                    }
+
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("พบข้อผิดพลาด กรุณาลองใหม่หรือติดต่อ IT : " + ex.Message);
+
+                    }
+
+                }
+            }
+        }
+
+        private void lvShowSearchMovie_ItemActivate(object sender, EventArgs e)
+        {
+            btSaveMovie.Enabled = false;
+            btUpdateMovie.Enabled = true;
+            btDeleteMovie.Enabled = true;
+
+            if (lvShowSearchMovie.SelectedItems.Count > 0)
+            {
+                string movieID = lvShowSearchMovie.SelectedItems[0].SubItems[0].Text;
+
+                string connectionString = @"Server=DESKTOP-G2RQ5QR\SQLEXPRESS;Database=movie_collection_db;Trusted_Connection=True";
+                using (SqlConnection sqlConnection = new SqlConnection(connectionString))
+                {
+                    try
+                    {
+                        sqlConnection.Open();
+                        string strSQL = "SELECT movieId, movieName, movieDetail, movieDate, movieHour, movieMinute, movieType, movieImage, movieDirectorImage FROM movie_tb WHERE movieId = @movieId";
+                        using (SqlCommand sqlCommand = new SqlCommand(strSQL, sqlConnection))
+                        {
+                            sqlCommand.Parameters.AddWithValue("@movieId", movieID);
+
+                            using (SqlDataReader reader = sqlCommand.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+
+                                    lbMovieId.Text = reader["movieId"].ToString();
+
+                                    // TextBox
+                                    tbMovieName.Text = reader["movieName"].ToString();
+                                    tbMovieDetail.Text = reader["movieDetail"].ToString();
+
+                                    // DateTimePicker
+                                    dtpMovieDate.Value = Convert.ToDateTime(reader["movieDate"]);
+
+                                    // NumericUpDown
+                                    nudMovieHour.Value = Convert.ToInt32(reader["movieHour"]);
+                                    nudMovieMinute.Value = Convert.ToInt32(reader["movieMinute"]);
+
+                                    // ComboBox
+                                    cbbMovieType.SelectedItem = reader["movieType"].ToString();
+
+                                    // ภาพยนตร์
+                                    byte[] movieImageBytes = reader["movieImage"] as byte[];
+                                    if (movieImageBytes != null && movieImageBytes.Length > 0)
+                                    {
+                                        using (MemoryStream ms = new MemoryStream(movieImageBytes))
+                                        {
+                                            pcbMovieImage.Image = Image.FromStream(ms);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        pcbMovieImage.Image = null; // ใช้ภาพว่างจาก Resources
+                                    }
+
+                                    // ผู้กำกับ
+                                    byte[] directorImageBytes = reader["movieDirectorImage"] as byte[];
+                                    if (directorImageBytes != null && directorImageBytes.Length > 0)
+                                    {
+                                        using (MemoryStream ms = new MemoryStream(directorImageBytes))
+                                        {
+                                            pcbMovieDirectorImage.Image = Image.FromStream(ms);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        pcbMovieDirectorImage.Image = null;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("พบข้อผิดพลาด กรุณาลองใหม่หรือติดต่อ IT : " + ex.Message);
+                    }
+                }
+            }
+        }
+
+        private void reset()
+        {
+            lbMovieId.Text = "";
+            tbMovieName.Clear();
+            tbMovieDetail.Clear();
+            dtpMovieDate.Value = DateTime.Now;
+            nudMovieHour.Value = 0;
+            nudMovieMinute.Value = 0;
+            cbbMovieType.SelectedIndex = 0;
+            pcbMovieImage.Image = null;
+            pcbMovieDirectorImage.Image = null;
+            btSaveMovie.Enabled = true;
+            btUpdateMovie.Enabled = false;
+            btDeleteMovie.Enabled = false;
+            lvShowSearchMovie.Items.Clear();
+            tbSearchMovie.Clear();
+        }
+        private void btDeleteMovie_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("ต้องการลบภาพยนต์หรือไม่", "ยีนยัน", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                string connectionString = @"Server=DESKTOP-G2RQ5QR\SQLEXPRESS;Database=movie_collection_db;Trusted_Connection=True";
+                using (SqlConnection sqlConnection = new SqlConnection(connectionString))
+                {
+                    try
+                    {
+                        sqlConnection.Open();
+
+                        SqlTransaction sqlTransaction = sqlConnection.BeginTransaction();
+
+                        string strSQL = "DELETE FROM movie_tb WHERE movieId = @movieId";
+                        using (SqlCommand sqlCommand = new SqlCommand(strSQL, sqlConnection, sqlTransaction))
+                        {
+                            sqlCommand.Parameters.Add("@movieId", SqlDbType.Int).Value = int.Parse(lbMovieId.Text);
+                            sqlCommand.ExecuteNonQuery();
+                            sqlTransaction.Commit();
+                        }
+                        MessageBox.Show("ลบภาพยนต์เรียบร้อย", "ผลการทำงาน", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        getAllMovie();
+                        reset();
+
+
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("พบข้อผิดพลาด กรุณาลองใหม่หรือติดต่อ IT : " + ex.Message);
+                    }
+                }
+
+            }
+        }
+
+        private void btUpdateMovie_Click(object sender, EventArgs e)
+        {
+            //Validate 
+            if (tbMovieName.Text.Trim() == "")
+            {
+                MessageBox.Show("กรุณากรอกชื่อภาพยนต์");
+            }
+            else if (tbMovieDetail.Text.Trim() == "")
+            {
+                MessageBox.Show("กรุณากรอกรายละเอียดภาพยนต์");
+            }
+            else if (nudMovieHour.Value == 0)
+            {
+                MessageBox.Show("กรุณาระบุชั่วโมงหนัง");
+            }
+            else
+            {
+                string connectionString = @"Server=DESKTOP-G2RQ5QR\SQLEXPRESS;Database=movie_collection_db;Trusted_Connection=True";
+                using (SqlConnection sqlConnection = new SqlConnection(connectionString))
+                {
+                    try
+                    {
+                        sqlConnection.Open();
+
+                        SqlTransaction sqlTransaction = sqlConnection.BeginTransaction();
+
+
+                        string strSQL = "";
+
+                        if (movieImage == null)
+                        {
+                            strSQL = "UPDATE movie_tb SET movieName = @movieName, movieDetail = @movieDetail, " +
+                                     "movieDate = @movieDate, movieHour = @movieHour, movieMinute = @movieMinute, " +
+                                     "movieType = @movieType, movieDirectorImage = @movieDirectorImage WHERE movieId = @movieId";
+                        }
+                        else if (movieDirectorImage == null)
+                        {
+                            strSQL = "UPDATE movie_tb SET movieName = @movieName, movieDetail = @movieDetail, " +
+                                        "movieDate = @movieDate, movieHour = @movieHour, movieMinute = @movieMinute, " +
+                                        "movieType = @movieType, movieImage = @movieImage WHERE movieId = @movieId";
+                        }
+                        else
+                        {
+                            strSQL = "UPDATE movie_tb SET movieName = @movieName, movieDetail = @movieDetail, " +
+                                        "movieDate = @movieDate, movieHour = @movieHour, movieMinute = @movieMinute, " +
+                                        "movieType = @movieType, movieImage = @movieImage, movieDirectorImage = @movieDirectorImage WHERE movieId = @movieId";
+
+                        }
+
+                        using (SqlCommand sqlCommand = new SqlCommand(strSQL, sqlConnection, sqlTransaction))
+                        {
+                            sqlCommand.Parameters.Add("@movieId", SqlDbType.Int).Value = int.Parse(lbMovieId.Text);
+                            sqlCommand.Parameters.Add("@movieName", SqlDbType.NVarChar, 150).Value = tbMovieName.Text;
+                            sqlCommand.Parameters.Add("@movieDetail", SqlDbType.NVarChar, 500).Value = tbMovieDetail.Text;
+                            sqlCommand.Parameters.Add("@movieDate", SqlDbType.Date).Value = dtpMovieDate.Value.Date;
+                            sqlCommand.Parameters.Add("@movieHour", SqlDbType.Int).Value = nudMovieHour.Value.ToString();
+                            sqlCommand.Parameters.Add("@movieMinute", SqlDbType.Int).Value = nudMovieMinute.Value.ToString();
+                            sqlCommand.Parameters.Add("@movieType", SqlDbType.NVarChar, 150).Value = cbbMovieType.Text;
+                            if (movieImage != null)
+                            {
+                                sqlCommand.Parameters.Add("@movieImage", SqlDbType.Image).Value = movieImage;
+                            }
+                            if (movieDirectorImage != null)
+                            {
+                                sqlCommand.Parameters.Add("@movieDirectorImage", SqlDbType.Image).Value = movieDirectorImage;
+                            }
+
+
+
+
+                            sqlCommand.ExecuteNonQuery();
+                            sqlTransaction.Commit();
+
+
+                            MessageBox.Show("บันทึกเรียบร้อย", "ผลการทำงาน", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                            getAllMovie();
+                            reset();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("พบข้อผิดพลาด กรุณาลองใหม่หรือติดต่อ IT : " + ex.Message);
+
+                    }
+                }
+            }
+        }
+
+        private void btResetMovie_Click(object sender, EventArgs e)
+        {
+            getAllMovie();
+            reset();
+        }
+
+        private void btExit_Click(object sender, EventArgs e)
+        {
+            this.Close();
         }
     }
 }
